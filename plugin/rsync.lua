@@ -68,26 +68,31 @@ local function execute_hop(map, hop_index)
         print('Syncing up [' .. hop_index .. '] ' .. target)
     end
 
+    local stderr = {}
+
     vim.fn.jobstart({'rsync', '-z', from, hop.username .. '@' .. hop.host .. ':' .. to}, {
-      on_exit = function()
-          print('Synced ' .. target)
-      end,
+        on_exit = function(_, code)
+            if code == 0 then
+                print('Synced ' .. target)
+                return
+            end
 
-      stdout_buffered = true,
-      on_stdout = function(_, data)
-          if data and data[1] ~= '' then
-              print('Synced ' .. target)
-              table.concat(data, '\n')
-          end
-      end,
+            print('Failed to sync ' .. target .. ' (exit code ' .. code .. ')')
 
-      stderr_buffered = true,
-      on_stderr = function(_, data)
-          if data and data[1] ~= '' then
-              print('Failed to sync ' .. target)
-              table.concat(data, '\n')
-          end
-      end
+            local message = table.concat(stderr, '\n')
+            if message ~= '' then
+                print(message)
+            end
+        end,
+
+        stderr_buffered = true,
+        on_stderr = function(_, data)
+            for _, line in ipairs(data or {}) do
+                if line ~= '' then
+                    table.insert(stderr, line)
+                end
+            end
+        end
     })
 end
 
