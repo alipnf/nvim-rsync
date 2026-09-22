@@ -1,9 +1,13 @@
-local function get_config()
+local function get_config_path()
     local cwd = vim.fn.getcwd()
-    local path = cwd .. '/.nvim/rsync.lua'
+    return cwd .. '/.nvim/rsync.lua'
+end
+
+local function get_config()
+    local path = get_config_path()
     local config = nil
 
-    if vim.fn.filereadable(path) then
+    if vim.fn.filereadable(path) == 1 then
         local file = io.open(path)
 
         if (not file) then
@@ -12,6 +16,7 @@ local function get_config()
         end
 
         local content = file:read('a')
+        file:close()
         local callback = load(content)
 
         if (not callback) then
@@ -23,6 +28,38 @@ local function get_config()
     end
 
     return config
+end
+
+local function init_config()
+    local path = get_config_path()
+
+    if vim.fn.filereadable(path) == 1 then
+        print('Config file already exists: ' .. path)
+    else
+        vim.fn.mkdir(vim.fn.fnamemodify(path, ':h'), 'p')
+
+        local file, error = io.open(path, 'w')
+        if not file then
+            print('Failed to create config file: ' .. error)
+            return
+        end
+
+        file:write([[return {
+    default = 'development',
+    table = {
+        development = {
+            username = 'username',
+            host = 'example.com',
+            path = '/var/www/project',
+        },
+    },
+}
+]])
+        file:close()
+        print('Created config file: ' .. path)
+    end
+
+    vim.cmd('edit ' .. vim.fn.fnameescape(path))
 end
 
 local function is_hop_valid(hop)
@@ -95,6 +132,11 @@ local function execute_hop(map, hop_index)
         end
     })
 end
+
+vim.api.nvim_create_user_command('RsyncInit', init_config, {
+    desc = 'Create project rsync config',
+    nargs = 0,
+})
 
 vim.api.nvim_create_user_command('RsyncUp', function(context)
     local config = get_config()
