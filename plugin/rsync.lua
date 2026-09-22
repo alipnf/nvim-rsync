@@ -3,7 +3,7 @@ local function get_config_path()
     return cwd .. '/.nvim/rsync.lua'
 end
 
-local function get_config()
+local function get_config(silent)
     local path = get_config_path()
     local config = nil
 
@@ -11,7 +11,9 @@ local function get_config()
         local file = io.open(path)
 
         if (not file) then
-            print('Config file is broken')
+            if not silent then
+                print('Config file is broken')
+            end
             return false
         end
 
@@ -20,7 +22,9 @@ local function get_config()
         local callback = load(content)
 
         if (not callback) then
-            print('Config file has invalid syntax')
+            if not silent then
+                print('Config file has invalid syntax')
+            end
             return false
         end
 
@@ -28,6 +32,23 @@ local function get_config()
     end
 
     return config
+end
+
+local function complete_hop(arglead)
+    local config = get_config(true)
+    if not config or type(config.table) ~= 'table' then
+        return {}
+    end
+
+    local hops = {}
+    for name in pairs(config.table) do
+        if type(name) == 'string' and name:sub(1, #arglead) == arglead then
+            table.insert(hops, name)
+        end
+    end
+
+    table.sort(hops)
+    return hops
 end
 
 local function init_config()
@@ -163,4 +184,8 @@ vim.api.nvim_create_user_command('RsyncUp', function(context)
 
     return execute_hop(config.table, context.args)
 
-end, { desc = 'Remote sync upstream', nargs = '?' })
+end, {
+    desc = 'Remote sync upstream',
+    nargs = '?',
+    complete = complete_hop,
+})
